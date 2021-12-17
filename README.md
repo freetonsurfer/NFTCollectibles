@@ -1,9 +1,72 @@
 # NFTCollectibles
 
 ### Architecture
-General information about the collection is stored in the root contract. Each picture is stored in a separate contract. Each picture belongs to a specific layer and has a unique number. There can be up to 256 layers in a collection, each layer can contain 256 pictures. The token stores information about which pictures it belongs to.
 
-![scheme](img/scheme.png)
+All data are stored onchain. There are four types of contracts
+
+**NftCollectiion** - is the root contract that stores data for a specific collection
+```
+     address _owner; - collection owner address
+     uint8 _levelCount; - the number of levels in the collection
+     uint32 _firstLvlImgCount; - number of images on the first level
+     uint32 _supply; - the number of tokens that can be minted
+     uint32 _minted; - the number of minted tokens
+     bool _complete; - the assembly is ready for minting a token or is under construction. Once it is set to true, the collection cannot be changed
+     TvmCell _imageCode; - Image contract code
+     TvmCell _tokenCode; - Token contract code
+     TvmCell _certCode; - UserCert contract code
+```
+
+**Image** is a contract that stores image data and information about the position of an image in a collection.
+```
+      static address _root; - NftCollectiion address
+      uint8 static _level; - level number
+      uint8 static _id; - position at the level
+      uint8 _chunks; - number of image data blocks
+      display (uint8 => bytes) _content; - image data
+      bool public _complete; - whether the image is ready for minting a token or is it under construction. Once it is set to true, the image cannot be changed
+      uint64 _price; - image price
+      uint8 _levelImageCount; - number of images for the current level
+      uint8 _nextLevelImageCount; - number of images for the next level
+      address _owner; - the address where you can send a request for the image. Once set to true image, the image cannot be changed
+      string _name; - image name
+```
+
+**Token** is a minted collectible token. This is store information about the image.
+```
+      code salt NftCollectiion address
+      uint8 [] static _images; - Image link. The position in the array is Image _level, the value is Image _id.
+      address _owner; - Token owner.
+      TvmCell _certCode; - UserCert code.
+```
+
+**UserCert** - it is index contract for finding token contract for specific user
+```
+    code salt Token address.
+    address static _token; - address of Token contract.
+```
+
+#### Calculating the price of the token
+
+To calculate the price of a token, you must add up the price of each image contained in that token.
+
+#### How to find all images for NftCollectiion
+
+The image contract has static variables _root, _level, _id. To find all images for NftCollectiion, you first need to get _levelCount. Each level must have at least one image. You can call NftCollectiion.getImageAddress(_level, _id) for each level with image id 0. From the image, you can get _levelImageCount. This is a variable equal to the number of images in the level. And now you can evaluate the address for all images
+
+#### How to find all tokens for NftCollectiion
+
+To receive all minted tokens, you must obtain a token code. Paste the NftCollectiion address into the code salt, get a hash and find all contracts with such hash.
+
+#### How to find user tokens
+
+There is a UserCert contract that helps you find all user tokens. You should get the UserCert code, insert the user's address in the salt code, get the hash and find all contracts with such a hash. You will find UserCert contracts that store the token address. Tokens can be issued by different NftCollectiions, so to find all custom tokens for a specific collection, you must check the _root address in the token contract.
+
+#### Minting procedure
+
+For token mint, the user must select an image at each level and call NftCollection.mint. The parameter of this call is the array of image indexs, the position in the array is the level id. When the NftCollection receives a mint request, it calculates the addresses of the Token that should be mint and stores it in the request queue, and now no one else can try to mint the token with the same image IDs. NftCollection sends a request to the token address to check if the contract exists. If the contract exists, it will call the onExist function, which will remove the request from the queue. If the contract does not exist onBounce function will be called. NtfCollection send a request for the image from the first level. The image from the first level call the image from the second level, and so on. This helps to estimate the price of mint. The last layer image will call NtfCollection. NtfCollection verifies that the mint price is greater than the user's message value and deploy Token. After deploying the Token, the Token will call NtfCollection.removeQuery to remove the request from the queue.
+
+**Note: When minting, the integrity of the data in the contracts is checked. The contracts exchange messages. DeBot waits for the completion of the entire chain of transactions, therefore, the minting of a token in DeBot takes about 1 minute 30 seconds**
 
 ### Configuration
 
