@@ -9,3 +9,4 @@ import "https://raw.githubusercontent.com/tonlabs/DeBot-IS-consortium/main/Addre
 import "https://raw.githubusercontent.com/tonlabs/DeBot-IS-consortium/main/UserInfo/UserInfo.sol";
 import "https://raw.githubusercontent.com/tonlabs/DeBot-IS-consortium/main/Media/Media.sol";
 import "https://raw.githubusercontent.com/tonlabs/DeBot-IS-consortium/main/Base64/Base64.sol";
+import "https://raw.githubusercontent.com/tonlabs/DeBot-IS-consortium/main/Network/Network.sol";

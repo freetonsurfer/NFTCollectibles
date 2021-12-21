@@ -112,6 +112,23 @@
 			]
 		},
 		{
+			"name": "getAvailableIndex",
+			"inputs": [
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "setAvailableIndex",
+			"inputs": [
+				{"name":"statusCode","type":"int32"},
+				{"name":"retHeaders","type":"bytes[]"},
+				{"name":"content","type":"bytes"}
+			],
+			"outputs": [
+			]
+		},
+		{
 			"name": "getImagesInfo",
 			"inputs": [
 			],
@@ -204,6 +221,31 @@
 			]
 		},
 		{
+			"name": "getFullImage",
+			"inputs": [
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "setFullImage",
+			"inputs": [
+				{"name":"statusCode","type":"int32"},
+				{"name":"retHeaders","type":"bytes[]"},
+				{"name":"content","type":"bytes"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "setShowFullImageResult",
+			"inputs": [
+				{"name":"result","type":"uint8"}
+			],
+			"outputs": [
+			]
+		},
+		{
 			"name": "confirmMintToken",
 			"inputs": [
 				{"name":"value","type":"bool"}
@@ -215,6 +257,13 @@
 			"name": "checkMsigBalanceAmount",
 			"inputs": [
 				{"name":"nanotokens","type":"uint128"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "sendRawMessage",
+			"inputs": [
 			],
 			"outputs": [
 			]
@@ -247,6 +296,34 @@
 			"name": "selectUserNft",
 			"inputs": [
 				{"name":"index","type":"uint32"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "setUserNftInfo",
+			"inputs": [
+				{"name":"value0","type":"address"},
+				{"name":"value1","type":"address"},
+				{"name":"value2","type":"uint8[]"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "setUserNftImage",
+			"inputs": [
+				{"name":"statusCode","type":"int32"},
+				{"name":"retHeaders","type":"bytes[]"},
+				{"name":"content","type":"bytes"}
+			],
+			"outputs": [
+			]
+		},
+		{
+			"name": "setShowsetUserNftImageResult",
+			"inputs": [
+				{"name":"result","type":"uint8"}
 			],
 			"outputs": [
 			]

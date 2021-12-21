@@ -25,9 +25,12 @@ interface IImage {
 
 interface IToken {
     function changeOwner(address newOwner) external;
+    function getInfo(uint32 _answer_id) external returns(address value0, address value1, uint8[] value2);
 }
 
 contract NFTDebot is Debot, Upgradable {
+
+    string constant STR_IP = "https://85.143.173.226:5000";
 
     address _nftCollection;
     uint256 _nftCollectionPubkey;
@@ -190,11 +193,47 @@ contract NFTDebot is Debot, Upgradable {
         _items = new MenuItem[](0);
         _itemsIds = new uint8[](0);
         _imgIds = new uint8[](0);
-        getImagesInfo();
+        getAvailableIndex();
+        //getImagesInfo();
+    }
+
+    function getAvailableIndex() public {
+        string url = STR_IP+"/ids/";
+        for (uint8 val : _imgIds) {
+            url = format("{}{}",url,val);
+        }
+        string[] header;
+        Network.get(tvm.functionId(setAvailableIndex), url, header);
+    }
+
+    function setAvailableIndex(int32 statusCode, string[] retHeaders, string content) public {
+        if (statusCode==200) {
+            if (content.byteLength()==0) {
+                Terminal.print(0, "Error: empty content!");
+                return;
+            }
+            _itemsIds = new uint8[](0);
+            for (uint i=0;i<content.byteLength();i++) {
+                string str = content.substr(i, 1);
+                //optional(int) res;
+                (uint val, bool res) = stoi(str);
+                if (res)
+                    _itemsIds.push(uint8(val));
+                else {
+                    Terminal.print(0, "Error: stoi error!");
+                    return;
+                }
+            }
+
+            getImagesInfo();
+        } else {
+            Terminal.print(0, "Network error!");
+        }
     }
 
     function getImagesInfo() public{
-        address addr = getImageAddress(_curLvl,_curImg);
+
+        address addr = getImageAddress(_curLvl,_itemsIds[_curImg]);
         optional(uint256) none;
         IImage(addr).getInfo{
             abiVer: 2,
@@ -211,11 +250,11 @@ contract NFTDebot is Debot, Upgradable {
 
     function getLevelImageInfo(address root, address owner, uint8 chunks, uint64 price, uint8 levelImageCount, uint8 nextLevelImageCount, bool complete, string name) public {
         _items.push(MenuItem(format("{} - price {} EVER", name, price/1 ton), "", tvm.functionId(selectLevelImg)));
-        _itemsIds.push(_curImg);
+        //_itemsIds.push(_curImg);
         _imgCost.push(price);
 
         _curImg++;
-        if (_curImg==levelImageCount) {
+        if (_curImg==_itemsIds.length) {
             showMintMenu();
         } else {
             getImagesInfo();
@@ -280,7 +319,8 @@ contract NFTDebot is Debot, Upgradable {
              }else{
                  _curImg=0;
                  _items = new MenuItem[](0);
-                 getImagesInfo();
+                 //getImagesInfo();
+                 getAvailableIndex();
              }
         }else {
            showMintMenu();
@@ -320,10 +360,40 @@ contract NFTDebot is Debot, Upgradable {
                 signBoxHandle: _signingBox,
                 call: {AMSig.sendTransaction, _nftCollection, _curCost, true, 1, payload}
             });
-            ConfirmInput.get(tvm.functionId(confirmMintToken), format("Do you want mint CAT for {:t} EVERS?",_curCost));
+
+            getFullImage();
+            //ConfirmInput.get(tvm.functionId(confirmMintToken), format("Do you want mint CAT for {:t} EVERS?",_curCost));
         }else {
             Terminal.print(tvm.functionId(getUserTokens), "This token already exists!");
         }
+    }
+
+    function getFullImage() public {
+        string url = STR_IP+"/img/";
+        for (uint8 val : _imgIds) {
+            url = format("{}{}",url,val);
+        }
+        string[] header;
+        Network.get(tvm.functionId(setFullImage), url, header);
+    }
+
+    function setFullImage(int32 statusCode, string[] retHeaders, string content) public {
+        if (statusCode==200) {
+            string str = "data:image/png;base64,";
+            str.append(content);
+            Media.output(tvm.functionId(setShowFullImageResult), "Image", str);
+        } else {
+            Terminal.print(0, "Full image network error!");
+        }
+    }
+
+    function setShowFullImageResult(MediaStatus result) public  {
+        if(result == MediaStatus.Success) {
+            ConfirmInput.get(tvm.functionId(confirmMintToken), format("Do you want mint CAT for {:t} EVERS?",_curCost));
+        }else{
+            Terminal.print(0,"Error: can't show full image");
+        }
+
     }
 
     function confirmMintToken(bool value) public {
@@ -337,10 +407,14 @@ contract NFTDebot is Debot, Upgradable {
     function checkMsigBalanceAmount(uint128 nanotokens) public {
         uint128 fee = 0.1 ton;
         if (nanotokens >_curCost+Constants.TOKEN_DEPLOY_VALUE+fee) {
-            tvm.sendrawmsg(_sendMsg, 1);
+            Terminal.print(tvm.functionId(sendRawMessage), "Due to onchain data integrity check, mint takes about 1 minute 30 seconds");
         } else {
             Terminal.print(tvm.functionId(this.start), "Error: Your don't have enougth money on your multisig for operation! Terminated!");
         }
+    }
+
+    function sendRawMessage() public {
+        tvm.sendrawmsg(_sendMsg, 1);
     }
 
     function mintTokenError(uint32 sdkError, uint32 exitCode) public {
@@ -364,12 +438,52 @@ contract NFTDebot is Debot, Upgradable {
 
     function selectUserNft(uint32 index) public {
         _curToken = index;
-        Menu.select("Select action", "", [
-            MenuItem("Gift", "", tvm.functionId(giftUserNft)),
-            MenuItem("Back", "", tvm.functionId(listNft))
-
-        ]);
+        optional(uint256) none;
+        IToken(_tokens[index]).getInfo {
+            abiVer: 2,
+            extMsg: true,
+            callbackId: tvm.functionId(setUserNftInfo),
+            onErrorId:  tvm.functionId(getMethodError),
+            time: 0,
+            expire: 0,
+            sign: false,
+            pubkey: none
+        }(0);
     }
+
+    function setUserNftInfo(address value0, address value1, uint8[] value2) public {
+        string url = STR_IP+"/img/";
+        for (uint8 val : value2) {
+            url = format("{}{}",url,val);
+        }
+        string[] header;
+        Network.get(tvm.functionId(setUserNftImage), url, header);
+    }
+
+    function setUserNftImage(int32 statusCode, string[] retHeaders, string content) public {
+        if (statusCode==200) {
+            string str = "data:image/png;base64,";
+            str.append(content);
+            Media.output(tvm.functionId(setShowsetUserNftImageResult), "Image", str);
+        } else {
+            Terminal.print(0, "User nft image network error!");
+        }
+    }
+
+    function setShowsetUserNftImageResult(MediaStatus result) public  {
+        if(result == MediaStatus.Success) {
+            Menu.select("Select action", "", [
+                MenuItem("Gift", "", tvm.functionId(giftUserNft)),
+                MenuItem("Back", "", tvm.functionId(listNft))
+            ]);
+        }else{
+            Terminal.print(0,"Error: can't show User nft image");
+        }
+
+    }
+
+
+
 
     //change owner
     function giftUserNft(uint32 index) public {
